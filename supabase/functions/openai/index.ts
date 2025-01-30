@@ -8,26 +8,27 @@ const model = genAI.getGenerativeModel({
   model: "gemini-exp-1206",
 });
 
-const generationConfig = {
-  temperature: 1,
-  topP: 0.95,
-  topK: 64,
-  maxOutputTokens: 8192,
-  responseMimeType: "text/plain",
-};
+function transformJson(data) {
+  const generationConfig = {
+    temperature: 1,
+    topP: 0.95,
+    topK: 64,
+    maxOutputTokens: 8192,
+    responseMimeType: "text/plain",
+  };
 
-Deno.serve(async (req) => {
-  const data = await req.json();
-  
   const history = data.messages.map(message => ({
     role: message.role,
     parts: message.content.map(content => ({ text: content.text }))
   }));
 
-  const chatSession = model.startChat({
-    generationConfig,
-    history,
-  });
+  return { history, generationConfig };
+}
+
+Deno.serve(async (req) => {
+  const data = await req.json();
+  
+  const chatSession = model.startChat(transformJson(data));
 
   const result = await chatSession.sendMessage("INSERT_INPUT_HERE");
   return new Response(
