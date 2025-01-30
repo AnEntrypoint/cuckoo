@@ -1,32 +1,38 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { GoogleGenerativeAI } from "npm:@google/generative-ai";
 
-// Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey);
 
-console.log("Hello from Functions!")
+const model = genAI.getGenerativeModel({
+  model: "gemini-exp-1206",
+});
+
+function transformJson(data) {
+  const generationConfig = {
+    temperature: 1,
+    topP: 0.95,
+    topK: 64,
+    maxOutputTokens: 8192,
+    responseMimeType: "text/plain",
+  };
+
+  const history = data.messages.map(message => ({
+    role: message.role,
+    parts: message.content.map(content => ({ text: content.text }))
+  }));
+
+  return { history, generationConfig };
+}
 
 Deno.serve(async (req) => {
-  const { name } = await req.json()
-  const data = {
-    message: `Hello ${name}!`,
-  }
+  const data = await req.json();
+  
+  const chatSession = model.startChat(transformJson(data));
 
+  const result = await chatSession.sendMessage("INSERT_INPUT_HERE");
   return new Response(
-    JSON.stringify(data),
+    JSON.stringify({ response: result.response.text() }),
     { headers: { "Content-Type": "application/json" } },
-  )
-})
-
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/google' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/
+  );
+});

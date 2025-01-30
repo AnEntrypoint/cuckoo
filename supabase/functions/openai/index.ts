@@ -28,7 +28,12 @@ function transformJson(data) {
 Deno.serve(async (req) => {
   const data = await req.json();
   
-  const chatSession = model.startChat(transformJson(data));
+  const { history, generationConfig } = transformJson(data);
+
+  const chatSession = model.startChat({
+    generationConfig,
+    history,
+  });
 
   const result = await chatSession.sendMessage("INSERT_INPUT_HERE");
   return new Response(
