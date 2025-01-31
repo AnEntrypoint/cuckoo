@@ -1,29 +1,42 @@
-import { createFunction } from "../_utils/createFunction";
+import { createFunction, RequestParams } from "../_utils/createFunction";
 
-const azureOpenaiApiUrl = "https://<your-azure-openai-endpoint>.openai.azure.com/openai/deployments/<your-deployment-id>/chat/completions?api-version=2023-07-01-preview";
-const azureOpenaiApiKeyEnvVar = "AZURE_OPENAI_API_KEY";
+const azureApiUrl = "https://{resource}.openai.azure.com/openai/deployments/{deployment}/chat/completions?api-version=2023-05-15";
+const azureApiKeyEnvVar = "AZURE_OPENAI_API_KEY";
 
-const translateRequestBody = (prompt: string, history: string[], systemPrompt: string, toolCalls: any[], multimodalData: any[]) => ({
-  model: "gpt-3.5-turbo",
-  messages: [
+const DEFAULT_MODEL = "gpt-35-turbo";  // This is the deployment name
+const DEFAULT_MAX_TOKENS = 1000;
+const DEFAULT_TEMPERATURE = 0.7;
+
+const translateRequestBody = (params: RequestParams) => {
+  const { prompt, history, systemPrompt, toolCalls, multimodalData, model, max_tokens, temperature, ...rest } = params;
+  
+  const messages = [
     { role: "system", content: systemPrompt },
-    ...history.map((msg, index) => ({ role: index % 2 === 0 ? "user" : "assistant", content: msg })),
-    { role: "user", content: prompt },
-    ...toolCalls.map(call => ({ role: "tool", content: JSON.stringify(call) })),
-    ...multimodalData.map(data => ({ role: "multimodal", content: JSON.stringify(data) }))
-  ],
-  max_tokens: 300,
-  temperature: 0.7,
-});
+    ...history.map((msg, i) => ({
+      role: i % 2 === 0 ? "user" : "assistant",
+      content: msg
+    })),
+    { role: "user", content: prompt }
+  ];
+
+  return {
+    messages,
+    max_tokens: max_tokens ?? DEFAULT_MAX_TOKENS,
+    temperature: temperature ?? DEFAULT_TEMPERATURE,
+    ...rest
+  };
+};
 
 const translateResponse = (response: any) => ({
   choices: response.choices.map((choice: any) => ({
-    message: {
-      role: choice.message.role,
-      content: choice.message.content,
-    },
+    message: choice.message,
     finish_reason: choice.finish_reason,
   })),
 });
 
-createFunction(azureOpenaiApiUrl, azureOpenaiApiKeyEnvVar, translateRequestBody, translateResponse);
+// Note: The actual URL needs to be configured with the correct resource and deployment names
+const configuredUrl = azureApiUrl
+  .replace("{resource}", process.env.AZURE_RESOURCE_NAME || "")
+  .replace("{deployment}", process.env.AZURE_DEPLOYMENT_NAME || DEFAULT_MODEL);
+
+createFunction(configuredUrl, azureApiKeyEnvVar, translateRequestBody, translateResponse);

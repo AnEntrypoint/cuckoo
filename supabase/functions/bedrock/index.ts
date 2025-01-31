@@ -1,28 +1,26 @@
-import { createFunction } from "../_utils/createFunction";
+import { createFunction, RequestParams } from "../_utils/createFunction";
 
 const bedrockApiUrl = "https://bedrock-runtime.{region}.amazonaws.com/model/anthropic.claude-v2/invoke";
-const bedrockApiKeyEnvVar = "AWS_BEDROCK_API_KEY";
+const bedrockApiKeyEnvVar = "AWS_ACCESS_KEY_ID";  // Note: Also requires AWS_SECRET_ACCESS_KEY and AWS_REGION
 
-const translateRequestBody = (prompt: string, history: string[], systemPrompt: string, toolCalls: any[], multimodalData: any[]) => {
-  let fullPrompt = "";
+const DEFAULT_MODEL = "anthropic.claude-v2";
+const DEFAULT_MAX_TOKENS = 1000;
+const DEFAULT_TEMPERATURE = 0.7;
+
+const translateRequestBody = (params: RequestParams) => {
+  const { prompt, history, systemPrompt, toolCalls, multimodalData, model, max_tokens, temperature, ...rest } = params;
   
-  if (systemPrompt) {
-    fullPrompt += `\n\nHuman: ${systemPrompt}\n\nAssistant: I understand and will follow these instructions.`;
-  }
-
-  if (history && history.length > 0) {
-    for (const msg of history) {
-      fullPrompt += `\n\n${msg.role === 'user' ? 'Human' : 'Assistant'}: ${msg.content}`;
-    }
-  }
-
-  fullPrompt += `\n\nHuman: ${prompt}\n\nAssistant:`;
+  const messages = [
+    systemPrompt && `System: ${systemPrompt}`,
+    ...history.map((msg, i) => `${i % 2 === 0 ? "Human" : "Assistant"}: ${msg}`),
+    `Human: ${prompt}`
+  ].filter(Boolean).join("\n\n");
 
   return {
-    prompt: fullPrompt,
-    max_tokens: 2000,
-    temperature: 0.7,
-    anthropic_version: "bedrock-2023-05-31"
+    prompt: messages,
+    max_tokens_to_sample: max_tokens ?? DEFAULT_MAX_TOKENS,
+    temperature: temperature ?? DEFAULT_TEMPERATURE,
+    ...rest
   };
 };
 
@@ -33,12 +31,8 @@ const translateResponse = (response: any) => ({
       content: response.completion,
     },
     finish_reason: response.stop_reason,
-  }],
-  usage: {
-    prompt_tokens: response.usage?.input_tokens || 0,
-    completion_tokens: response.usage?.output_tokens || 0,
-    total_tokens: (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0)
-  },
+  }]
 });
 
-createFunction(bedrockApiUrl, bedrockApiKeyEnvVar, translateRequestBody, translateResponse); 
+const configuredUrl = bedrockApiUrl.replace("{region}", process.env.AWS_REGION || "us-east-1");
+createFunction(configuredUrl, bedrockApiKeyEnvVar, translateRequestBody, translateResponse); 

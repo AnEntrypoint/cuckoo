@@ -1,31 +1,27 @@
-import { createFunction } from "../_utils/createFunction";
+import { createFunction, RequestParams } from "../_utils/createFunction";
 
-const togetherApiUrl = "https://api.together.xyz/v1/chat/completions";
+const togetherApiUrl = "https://api.together.xyz/inference";
 const togetherApiKeyEnvVar = "TOGETHER_API_KEY";
 
-const translateRequestBody = (prompt: string, history: string[], systemPrompt: string, toolCalls: any[], multimodalData: any[]) => {
-  const messages = [];
+const DEFAULT_MODEL = "togethercomputer/llama-2-70b-chat";
+const DEFAULT_MAX_TOKENS = 1000;
+const DEFAULT_TEMPERATURE = 0.7;
+
+const translateRequestBody = (params: RequestParams) => {
+  const { prompt, history, systemPrompt, toolCalls, multimodalData, model, max_tokens, temperature, ...rest } = params;
   
-  if (systemPrompt) {
-    messages.push({ role: "system", content: systemPrompt });
-  }
-
-  if (history && history.length > 0) {
-    for (const msg of history) {
-      messages.push({ role: msg.role, content: msg.content });
-    }
-  }
-
-  messages.push({ role: "user", content: prompt });
+  const messages = [
+    systemPrompt && `System: ${systemPrompt}`,
+    ...history.map((msg, i) => `${i % 2 === 0 ? "Human" : "Assistant"}: ${msg}`),
+    `Human: ${prompt}`
+  ].filter(Boolean).join("\n\n");
 
   return {
-    model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
-    messages,
-    max_tokens: 2000,
-    temperature: 0.7,
-    stream: false,
-    tools: toolCalls.length > 0 ? toolCalls : undefined,
-    stop: ["</s>", "[/INST]"]  // Common stop tokens for instruction models
+    model: model ?? DEFAULT_MODEL,
+    prompt: messages,
+    max_tokens: max_tokens ?? DEFAULT_MAX_TOKENS,
+    temperature: temperature ?? DEFAULT_TEMPERATURE,
+    ...rest
   };
 };
 
@@ -33,11 +29,10 @@ const translateResponse = (response: any) => ({
   choices: [{
     message: {
       role: "assistant",
-      content: response.choices[0].message.content,
+      content: response.output.choices[0].text,
     },
-    finish_reason: response.choices[0].finish_reason,
-  }],
-  usage: response.usage,
+    finish_reason: response.output.choices[0].finish_reason,
+  }]
 });
 
 createFunction(togetherApiUrl, togetherApiKeyEnvVar, translateRequestBody, translateResponse); 

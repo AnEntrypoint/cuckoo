@@ -1,41 +1,38 @@
-import { createFunction } from "../_utils/createFunction";
+import { createFunction, RequestParams } from "../_utils/createFunction";
 
 const perplexityApiUrl = "https://api.perplexity.ai/chat/completions";
 const perplexityApiKeyEnvVar = "PERPLEXITY_API_KEY";
 
-const translateRequestBody = (prompt: string, history: string[], systemPrompt: string, toolCalls: any[], multimodalData: any[]) => {
-  const messages = [];
+const DEFAULT_MODEL = "pplx-70b-chat";
+const DEFAULT_MAX_TOKENS = 1000;
+const DEFAULT_TEMPERATURE = 0.7;
+
+const translateRequestBody = (params: RequestParams) => {
+  const { prompt, history, systemPrompt, toolCalls, multimodalData, model, max_tokens, temperature, ...rest } = params;
   
-  if (systemPrompt) {
-    messages.push({ role: "system", content: systemPrompt });
-  }
-
-  if (history && history.length > 0) {
-    for (const msg of history) {
-      messages.push({ role: msg.role, content: msg.content });
-    }
-  }
-
-  messages.push({ role: "user", content: prompt });
+  const messages = [
+    { role: "system", content: systemPrompt },
+    ...history.map((msg, i) => ({
+      role: i % 2 === 0 ? "user" : "assistant",
+      content: msg
+    })),
+    { role: "user", content: prompt }
+  ];
 
   return {
-    model: "mixtral-8x7b-instruct",
+    model: model ?? DEFAULT_MODEL,
     messages,
-    max_tokens: 2000,
-    temperature: 0.7,
-    stream: false
+    max_tokens: max_tokens ?? DEFAULT_MAX_TOKENS,
+    temperature: temperature ?? DEFAULT_TEMPERATURE,
+    ...rest
   };
 };
 
 const translateResponse = (response: any) => ({
   choices: [{
-    message: {
-      role: "assistant",
-      content: response.choices[0].message.content,
-    },
+    message: response.choices[0].message,
     finish_reason: response.choices[0].finish_reason,
-  }],
-  usage: response.usage,
+  }]
 });
 
 createFunction(perplexityApiUrl, perplexityApiKeyEnvVar, translateRequestBody, translateResponse); 
