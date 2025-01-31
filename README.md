@@ -1,6 +1,15 @@
-# AI Provider API Integration
+# AI Provider Router
 
-This project provides a unified interface to interact with various AI model providers through their APIs. Each provider implementation supports configurable parameters while maintaining sensible defaults.
+This project provides a unified router interface to interact with various AI model providers through their APIs. The router allows you to easily switch between different AI providers while maintaining a consistent API interface. Each provider implementation supports configurable parameters while maintaining sensible defaults.
+
+## Features
+
+- Unified API interface across all providers
+- Configurable parameters with sensible defaults
+- Consistent response format
+- Easy provider switching
+- Environment-based configuration
+- Automatic error handling
 
 ## Supported Providers
 
@@ -122,25 +131,54 @@ AWS_REGION=              # AWS region (default: us-east-1)
 ## Usage Example
 
 ```typescript
-// Example request to OpenAI
-const response = await fetch("/functions/openai", {
+// Example requests using different providers through the router
+
+// Using OpenAI
+const openaiResponse = await fetch("/functions/openai", {
   method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     prompt: "Hello, how are you?",
-    history: [],
     systemPrompt: "You are a helpful assistant.",
     model: "gpt-4",              // Override default model
-    max_tokens: 2000,            // Override default token limit
     temperature: 0.9,            // Override default temperature
-    top_p: 0.95,                // Provider-specific parameter
   }),
 });
 
-const data = await response.json();
+// Using Anthropic
+const anthropicResponse = await fetch("/functions/anthropic", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    prompt: "Hello, how are you?",
+    systemPrompt: "You are Claude, an AI assistant.",
+    model: "claude-2.1",         // Override default model
+    max_tokens: 1000,            // Override default token limit
+  }),
+});
+
+// Using Gemini
+const geminiResponse = await fetch("/functions/google", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    prompt: "Hello, how are you?",
+    systemPrompt: "You are a helpful AI.",
+    temperature: 0.3,            // Override default temperature
+  }),
+});
+
+// All responses follow the same format
+const response = await openaiResponse.json();
+console.log(response.choices[0].message.content);
 ```
+
+The router allows you to easily switch between providers while maintaining the same request and response format. You can choose the provider that best suits your needs based on:
+- Cost considerations
+- Model capabilities
+- API availability
+- Response time requirements
+- Token limits
 
 ## Response Format
 
