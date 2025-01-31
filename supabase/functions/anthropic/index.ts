@@ -1,20 +1,29 @@
-import { createFunction } from "../_utils/createFunction";
+import { createFunction, RequestParams } from "../_utils/createFunction";
 
 const anthropicApiUrl = "https://api.anthropic.ai/v1/complete";
 const anthropicApiKeyEnvVar = "ANTHROPIC_API_KEY";
 
-const translateRequestBody = (prompt: string, history: string[], systemPrompt: string, toolCalls: any[], multimodalData: any[]) => ({
-  prompt: {
-    text: prompt,
-    history,
-    systemPrompt,
-    toolCalls,
-    multimodalData,
-  },
-  model: "claude-2",
-  max_tokens_to_sample: 300,
-  stop_sequences: ["\n\nHuman:"],
-});
+const DEFAULT_MODEL = "claude-2";
+const DEFAULT_MAX_TOKENS = 300;
+const DEFAULT_STOP_SEQUENCES = ["\n\nHuman:"];
+
+const translateRequestBody = (params: RequestParams) => {
+  const { prompt, history, systemPrompt, toolCalls, multimodalData, model, max_tokens, ...rest } = params;
+  
+  return {
+    prompt: {
+      text: prompt,
+      history,
+      systemPrompt,
+      toolCalls,
+      multimodalData,
+    },
+    model: model ?? DEFAULT_MODEL,
+    max_tokens_to_sample: max_tokens ?? DEFAULT_MAX_TOKENS,
+    stop_sequences: DEFAULT_STOP_SEQUENCES,
+    ...rest
+  };
+};
 
 const translateResponse = (response: any) => ({
   choices: response.completion.map((choice: any) => ({

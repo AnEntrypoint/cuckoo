@@ -2,11 +2,28 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { getEnvironmentVariable } from "./environment.ts";
 import { fetchWithRetry } from "./fetchWithRetry.ts";
 
-export const createFunction = (apiUrl: string, apiKeyEnvVar: string, requestBody: (prompt: string, history: string[], systemPrompt: string, toolCalls: any[], multimodalData: any[]) => any, translateResponse: (response: any) => any) => {
+export type RequestParams = {
+  prompt: string;
+  history: string[];
+  systemPrompt: string;
+  toolCalls: any[];
+  multimodalData: any[];
+  model?: string;
+  max_tokens?: number;
+  temperature?: number;
+  [key: string]: any;
+};
+
+export const createFunction = (
+  apiUrl: string, 
+  apiKeyEnvVar: string, 
+  translateRequestBody: (params: RequestParams) => any, 
+  translateResponse: (response: any) => any
+) => {
   const apiKey = getEnvironmentVariable(apiKeyEnvVar);
 
   return serve(async (req) => {
-    const { prompt, history, systemPrompt, toolCalls, multimodalData } = await req.json();
+    const requestParams: RequestParams = await req.json();
 
     const response = await fetchWithRetry(apiUrl, {
       method: "POST",
@@ -14,7 +31,7 @@ export const createFunction = (apiUrl: string, apiKeyEnvVar: string, requestBody
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(requestBody(prompt, history, systemPrompt, toolCalls, multimodalData)),
+      body: JSON.stringify(translateRequestBody(requestParams)),
     });
 
     const data = await response.json();
